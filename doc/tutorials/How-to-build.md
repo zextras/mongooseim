@@ -2,10 +2,10 @@
 
 Instructions provided in this page are verified for:
 
-* Rocky Linux 8
-* Ubuntu 16.04 LTS (Xenial)
-* Ubuntu 18.04 LTS (Bionic)
-* macOS 13.3 (Ventura)
+- Rocky Linux 8
+- Ubuntu 16.04 LTS (Xenial)
+- Ubuntu 18.04 LTS (Bionic)
+- macOS 13.3 (Ventura)
 
 For any other OS versions, the instructions should still work, however, some steps or file paths may be different.
 
@@ -98,15 +98,20 @@ To compile MongooseIM you need:
 
     **Step 4**
 
-    Add OpenSSL paths to the compiler and linker environment variables:
+    Add OpenSSL and ODBC paths to the compiler and linker environment variables:
 
     ```bash
-    export LDFLAGS="-L/usr/local/opt/openssl/lib"
-    export CFLAGS="-I/usr/local/opt/openssl/include"
+    export LDFLAGS="-L/usr/local/opt/openssl/lib -L/opt/homebrew/opt/unixodbc/lib"
+    export CFLAGS="-I/usr/local/opt/openssl/include -I/opt/homebrew/opt/unixodbc/include"
+    ```
+
+    **Note:** If you're using an Apple Silicon Mac (M1/M2/M3), the paths might be:
+    ```bash
+    export LDFLAGS="-L/opt/homebrew/opt/openssl/lib -L/opt/homebrew/opt/unixodbc/lib"
+    export CFLAGS="-I/opt/homebrew/opt/openssl/include -I/opt/homebrew/opt/unixodbc/include"
     ```
 
     Now, please proceed to the "Building" section.
-
 
 ## Building
 
@@ -124,12 +129,12 @@ If a more advanced release is required (with only specific DB support, e.g. mysq
 The `make rel` commands will generate a self-contained OTP system structure in the project's `_build/prod/rel/mongooseim` subdirectory.
 The contents of that directory are as follows:
 
-*   `bin` - startup/administration scripts,
-*   `etc` - configuration files,
-*   `lib` - MongooseIM binary, header and runtime files,
-*   `var` - spool directory,
-*   `log` - log file directory,
-*   `releases` - release files directory.
+- `bin` - startup/administration scripts,
+- `etc` - configuration files,
+- `lib` - MongooseIM binary, header and runtime files,
+- `var` - spool directory,
+- `log` - log file directory,
+- `releases` - release files directory.
 
 ## Running MongooseIM
 
