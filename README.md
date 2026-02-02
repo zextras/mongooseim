@@ -72,7 +72,7 @@ To run the project (from inside the directory):
 To run a single test:
 
 ```
-./rebar3 ct --suite=mod_pin_message_SUITE --dir=test/carbon --cover
+source .env.local && ./rebar3 ct --suite=mod_pin_message_SUITE --dir=test/carbonio/
 ```
 
 #### Mac note
