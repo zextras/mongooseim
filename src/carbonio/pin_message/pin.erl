@@ -45,7 +45,7 @@ get_pin_by_room_id(HostType, RoomId) ->
     Xml :: exml:element(),
     Body :: binary()
 ) -> {ok, #pin{}} | {error, {invalid_xml, binary()}}.
-xml_to_pin(PinnedBy, RoomId, RequestId, Xml, Body) ->   
+xml_to_pin(PinnedBy, RoomId, RequestId, Xml, Body) ->
     case xml_to_pin(PinnedBy, RoomId, RequestId, Xml) of
         {ok, Pin} -> {ok, Pin#pin{body = Body}};
         {error, Reason} -> error(Reason)
@@ -100,7 +100,6 @@ xml_to_pin(
 xml_to_pin(_, _, RequestId, _) ->
     {error, {invalid_xml, RequestId}}.
 
-
 -spec updated_message_to_xml(#msg{}) -> exml:element() | error.
 updated_message_to_xml(#msg{id = MessageId, children = [#pin{} = Pin]}) ->
     #xmlel{
@@ -142,7 +141,6 @@ pin_to_xml(#pin{
             {xmlcdata, datetime_to_binary(PinnedAt), escaped}
         ]},
         {xmlel, <<"body">>, #{}, [{xmlcdata, get_body(Body), escaped}]}
-    
     ]}.
 -spec message_to_xml(#msg{}) -> exml:element() | error.
 message_to_xml(#msg{id = MessageId, children = [#pin{} = Pin]}) ->
