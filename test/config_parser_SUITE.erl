@@ -103,6 +103,7 @@ groups() ->
      {auth, [parallel], [auth_methods,
                          auth_password,
                          auth_sasl_external,
+                         auth_sasl_external_common_name,
                          auth_allow_multiple_connections,
                          auth_anonymous_protocol,
                          auth_sasl_mechanisms,
@@ -134,6 +135,7 @@ groups() ->
                          pool_http_connection_tls,
                          pool_redis,
                          pool_redis_connection,
+                         pool_redis_connection_tls,
                          pool_cassandra,
                          pool_cassandra_connection,
                          pool_cassandra_connection_auth_plain,
@@ -143,6 +145,7 @@ groups() ->
                          pool_elastic_connection,
                          pool_rabbit,
                          pool_rabbit_connection,
+                         pool_rabbit_connection_tls,
                          pool_ldap,
                          pool_ldap_connection,
                          pool_ldap_connection_tls]},
@@ -729,6 +732,15 @@ auth_sasl_external(_Config) ->
                                  <<"cyrsasl_external_verification">>]}}),
     ?errh(#{<<"auth">> => #{<<"sasl_external">> => [<<"unknown">>]}}).
 
+auth_sasl_external_common_name(_Config) ->
+    T = fun(Opts) -> #{<<"auth">> => #{<<"sasl_external_common_name">> => Opts}} end,
+    P = [auth, sasl_external_common_name],
+    ?cfgh(P, default_config(P), T(#{})),
+    ?cfgh(P ++ [prefix], <<"user_">>, T(#{<<"prefix">> => <<"user_">>})),
+    ?cfgh(P ++ [suffix], <<".users">>, T(#{<<"suffix">> => <<".users">>})),
+    ?errh(T(#{<<"prefix">> => <<"user&">>})),
+    ?errh(T(#{<<"suffix">> => <<"@domain.com">>})).
+
 auth_sasl_mechanisms(_Config) ->
     Default = cyrsasl:default_modules(),
     ?cfg([{auth, ?HOST}, sasl_mechanisms], Default, #{}), % global default
@@ -1027,6 +1039,12 @@ pool_redis_connection(_Config) ->
     ?err(T(#{<<"database">> => -1})),
     ?err(T(#{<<"password">> => 0})).
 
+pool_redis_connection_tls(_Config) ->
+    P = [outgoing_pools, 1, conn_opts, tls],
+    T = fun(Opts) -> pool_conn_raw(<<"redis">>, #{<<"tls">> => Opts}) end,
+    ?cfg(P, config([outgoing_pools, redis, default, conn_opts, tls], tls_ca()), T(tls_ca_raw())),
+    test_just_tls_client(P, T).
+
 pool_cassandra(_Config) ->
     test_pool_opts(cassandra, #{<<"connection">> => #{}}).
 
@@ -1085,14 +1103,21 @@ pool_rabbit_connection(_Config) ->
     ?cfg(P ++ [port], 9999, T(#{<<"port">> => 9999})),
     ?cfg(P ++ [username], <<"user">>, T(#{<<"username">> => <<"user">>})),
     ?cfg(P ++ [password], <<"pass">>, T(#{<<"password">> => <<"pass">>})),
+    ?cfg(P ++ [virtual_host], <<"vh">>, T(#{<<"virtual_host">> => <<"vh">>})),
     ?cfg(P ++ [confirms_enabled], true, T(#{<<"confirms_enabled">> => true})),
     ?cfg(P ++ [max_worker_queue_len], 100, T(#{<<"max_worker_queue_len">> => 100})),
     ?err(T(#{<<"host">> => <<>>})),
     ?err(T(#{<<"port">> => 123456})),
     ?err(T(#{<<"username">> => <<>>})),
     ?err(T(#{<<"password">> => <<>>})),
+    ?err(T(#{<<"virtual_host">> => <<>>})),
     ?err(T(#{<<"confirms_enabled">> => <<"yes">>})),
     ?err(T(#{<<"max_worker_queue_len">> => -1})).
+
+pool_rabbit_connection_tls(_Config) ->
+    P = [outgoing_pools, 1, conn_opts, tls],
+    T = fun(Opts) -> pool_conn_raw(<<"rabbit">>, #{<<"tls">> => Opts}) end,
+    test_just_tls_client(P, T).
 
 pool_ldap(_Config) ->
     test_pool_opts(ldap, #{<<"connection">> => #{}}).
@@ -1896,16 +1921,14 @@ mod_event_pusher_http(_Config) ->
 
 mod_event_pusher_rabbit(_Config) ->
     P = [modules, mod_event_pusher, rabbit],
-    T = fun(Key, Opts) -> #{<<"modules">> =>
-                                #{<<"mod_event_pusher">> =>
-                                      #{<<"rabbit">> => #{Key => Opts}}}}
-        end,
+    T = fun(Opts) -> #{<<"modules">> => #{<<"mod_event_pusher">> => #{<<"rabbit">> => Opts}}} end,
+    ?cfgh(P, default_config(P), T(#{})),
     test_event_pusher_rabbit_exchange(P ++ [presence_exchange],
-                                      fun(Opts) -> T(<<"presence_exchange">>, Opts) end),
+                                      fun(Opts) -> T(#{<<"presence_exchange">> => Opts}) end),
     test_event_pusher_rabbit_msg_exchange(P ++ [chat_msg_exchange],
-                                          fun(Opts) -> T(<<"chat_msg_exchange">>, Opts) end),
+                                          fun(Opts) -> T(#{<<"chat_msg_exchange">> => Opts}) end),
     test_event_pusher_rabbit_msg_exchange(P ++ [groupchat_msg_exchange],
-                                          fun(Opts) -> T(<<"groupchat_msg_exchange">>, Opts) end).
+                                          fun(Opts) -> T(#{<<"groupchat_msg_exchange">> => Opts}) end).
 
 test_event_pusher_rabbit_msg_exchange(P, T) ->
     test_event_pusher_rabbit_exchange(P, T),
@@ -1919,8 +1942,10 @@ test_event_pusher_rabbit_exchange(P, T) ->
     ?cfgh(P, default_config(P), T(#{})),
     ?cfgh(P ++ [name], <<"notifications">>, T(#{<<"name">> => <<"notifications">>})),
     ?cfgh(P ++ [type], <<"direct">>, T(#{<<"type">> => <<"direct">>})),
+    ?cfgh(P ++ [durable], true, T(#{<<"durable">> => true})),
     ?errh(T(#{<<"name">> => <<>>})),
-    ?errh(T(#{<<"type">> => <<>>})).
+    ?errh(T(#{<<"type">> => <<>>})),
+    ?errh(T(#{<<"durable">> => <<"maybe">>})).
 
 mod_http_upload(_Config) ->
     T = fun(Opts) -> #{<<"modules">> => #{<<"mod_http_upload">> => Opts}} end,

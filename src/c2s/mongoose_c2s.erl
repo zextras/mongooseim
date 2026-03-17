@@ -82,21 +82,21 @@ instrumentation(HostType) when is_binary(HostType) ->
 callback_mode() ->
     handle_event_function.
 
--spec init(mongoose_listener:init_args()) -> gen_statem:init_result(state(), undefined).
+-spec init(mongoose_listener:init_args()) -> gen_statem:init_result(state(), data()).
 init({Transport, Ref, LOpts}) ->
-    ConnectEvent = {next_event, internal, {connect, {Transport, Ref, LOpts}}},
-    {ok, connect, undefined, ConnectEvent}.
+    ConnectEvent = {next_event, internal, {connect, {Transport, Ref}}},
+    {ok, connect, #c2s_data{listener_opts = LOpts}, ConnectEvent}.
 
 -spec handle_event(gen_statem:event_type(), term(), state(), data()) -> fsm_res().
-handle_event(internal, {connect, {Transport, Ref, LOpts}}, connect, _) ->
-    #{shaper := ShaperName, max_stanza_size := MaxStanzaSize} = LOpts,
+handle_event(internal, {connect, {Transport, Ref}}, connect, StateData) ->
+    #{shaper := ShaperName, max_stanza_size := MaxStanzaSize} = LOpts =
+        StateData#c2s_data.listener_opts,
     C2SSocket = mongoose_xmpp_socket:accept(Transport, c2s, Ref, LOpts),
     verify_ip_is_not_blacklisted(C2SSocket),
     {ok, Parser} = exml_stream:new_parser([{max_element_size, MaxStanzaSize}]),
     Shaper = mongoose_shaper:new(ShaperName),
-    StateData = #c2s_data{socket = C2SSocket, parser = Parser,
-                          shaper = Shaper, listener_opts = LOpts},
-    {next_state, {wait_for_stream, stream_start}, StateData, state_timeout(LOpts)};
+    StateData1 = StateData#c2s_data{socket = C2SSocket, parser = Parser, shaper = Shaper},
+    {next_state, {wait_for_stream, stream_start}, StateData1, state_timeout(LOpts)};
 
 handle_event(internal, #xmlstreamstart{attrs = Attrs}, {wait_for_stream, StreamState}, StateData) ->
     handle_stream_start(StateData, Attrs, StreamState);
@@ -188,6 +188,9 @@ handle_event(cast, Info, FsmState, StateData) ->
 handle_event({timeout, Name}, Payload, C2SState, StateData) ->
     handle_timeout(StateData, C2SState, Name, Payload);
 
+handle_event(state_timeout, state_timeout_termination, {wait_for_stream, stream_start}, StateData) ->
+    StreamError = mongoose_xmpp_errors:connection_timeout(),
+    stream_start_error(StateData, StreamError);
 handle_event(state_timeout, state_timeout_termination, _FsmState, StateData) ->
     StreamConflict = mongoose_xmpp_errors:connection_timeout(),
     send_element_from_server_jid(StateData, StreamConflict),
@@ -198,6 +201,8 @@ handle_event(EventType, EventContent, C2SState, StateData) ->
     handle_foreign_event(StateData, C2SState, EventType, EventContent).
 
 -spec terminate(term(), state(), data()) -> term().
+terminate(Reason, connect, _StateData) ->
+    ?LOG_INFO(#{what => c2s_failed_to_initialize, reason => Reason});
 terminate(Reason, C2SState, #c2s_data{host_type = HostType, lserver = LServer, sid = SID} = StateData) ->
     ?LOG_DEBUG(#{what => c2s_statem_terminate, reason => Reason, c2s_state => C2SState, c2s_data => StateData}),
     Params = hook_arg(StateData, C2SState, terminate, Reason, Reason),
@@ -402,7 +407,7 @@ handle_starttls(StateData = #c2s_data{socket = TcpSocket,
         {error, timeout} ->
             {stop, {shutdown, tls_timeout}};
         {error, {tls_alert, TlsAlert}} ->
-            {stop, TlsAlert}
+            {stop, {shutdown, {tls_alert, TlsAlert}}}
     end;
 handle_starttls(StateData, _El, _SaslAcc, _Retries) ->
     %% As defined in https://datatracker.ietf.org/doc/html/rfc6120#section-5.4.2.2, cause 2
@@ -441,7 +446,7 @@ handle_sasl_success(StateData = #c2s_data{jid = MaybeInitialJid, info = Info}, S
                                             info = maps:merge(Info, #{auth_module => AuthMod})},
             El = mongoose_c2s_stanzas:sasl_success_stanza(MaybeServerOut),
             send_acc_from_server_jid(StateData1, SaslAcc, El),
-            ?LOG_INFO(#{what => auth_success, text => <<"Accepted SASL authentication">>, c2s_state => StateData1}),
+            ?LOG_INFO(#{what => auth_success, text => <<"Accepted SASL authentication">>, c2s_data => StateData1}),
             {next_state, {wait_for_stream, authenticated}, StateData1, state_timeout(StateData1)};
         false ->
             c2s_stream_error(StateData, mongoose_xmpp_errors:invalid_from())
@@ -548,7 +553,7 @@ verify_user(wait_for_session_establishment, _, _, Acc) ->
 verify_user(session_established, HostType, #{c2s_data := StateData} = HookParams, Acc) ->
     case mongoose_c2s_hooks:user_open_session(HostType, Acc, HookParams) of
         {ok, Acc1} ->
-            ?LOG_INFO(#{what => c2s_opened_session, c2s_state => StateData}),
+            ?LOG_INFO(#{what => c2s_opened_session, c2s_data => StateData}),
             {ok, Acc1};
         {stop, Acc1} ->
             Jid = StateData#c2s_data.jid,
@@ -686,7 +691,7 @@ verify_process_alive(StateData, C2SState, Pid) ->
         true ->
             ?LOG_WARNING(#{what => c2s_replaced_wait_timeout,
                            text => <<"Some processes are not responding when handling replace messages">>,
-                           replaced_pid => Pid, state_name => C2SState, c2s_state => StateData})
+                           replaced_pid => Pid, state_name => C2SState, c2s_data => StateData})
     end.
 
 -spec maybe_retry_state(state()) -> state() | {stop, term()}.
@@ -911,7 +916,7 @@ send_trailer(StateData) ->
 
 -spec c2s_stream_error(data(), exml:element()) -> fsm_res().
 c2s_stream_error(StateData, Error) ->
-    ?LOG_DEBUG(#{what => c2s_stream_error, xml_error => Error, c2s_state => StateData}),
+    ?LOG_DEBUG(#{what => c2s_stream_error, xml_error => Error, c2s_data => StateData}),
     send_element_from_server_jid(StateData, Error),
     send_xml(StateData, ?XML_STREAM_TRAILER),
     {stop, {shutdown, stream_error}, StateData}.

@@ -661,16 +661,12 @@ custom_mod_event_pusher_push() ->
                  call_timeout => 5000}}.
 
 custom_mod_event_pusher_rabbit() ->
-    #{chat_msg_exchange => #{name => <<"chat_msg">>,
-                             recv_topic => <<"chat_msg_recv">>,
-                             sent_topic => <<"chat_msg_sent">>,
-                             type => <<"topic">>},
-      groupchat_msg_exchange => #{name => <<"groupchat_msg">>,
-                                  recv_topic => <<"groupchat_msg_recv">>,
-                                  sent_topic => <<"groupchat_msg_sent">>,
-                                  type => <<"topic">>},
-      presence_exchange => #{name => <<"presence">>,
-                             type => <<"topic">>}}.
+    config([modules, mod_event_pusher, rabbit],
+           #{chat_msg_exchange => #{recv_topic => <<"chat_msg_recv_topic">>,
+                                    sent_topic => <<"chat_msg_sent_topic">>},
+             groupchat_msg_exchange => #{},
+             presence_exchange => #{name => <<"my_presence">>,
+                                    durable => true}}).
 
 custom_mod_event_pusher_sns() ->
     #{access_key_id => "AKIAIOSFODNN7EXAMPLE",
@@ -734,12 +730,7 @@ extra_auth() ->
       rdbms => #{users_number_estimate => true}}.
 
 default_auth() ->
-    #{methods => [],
-      password => #{format => scram,
-                    scram_iterations => 10000},
-      sasl_external => [standard],
-      sasl_mechanisms => cyrsasl:default_modules(),
-      max_users_per_domain => infinity}.
+    default_config([auth]).
 
 pgsql_s2s() ->
     Addresses = #{<<"fed1">> => #{ip_address => "127.0.0.1",
@@ -835,6 +826,7 @@ default_pool_conn_opts(rabbit) ->
       port => 5672,
       username => <<"guest">>,
       password => <<"guest">>,
+      virtual_host => <<"/">>,
       confirms_enabled => false,
       max_worker_queue_len => 1000};
 default_pool_conn_opts(redis) ->
@@ -1107,6 +1099,16 @@ extra_component_listener_config() ->
       conflict_behaviour => disconnect,
       connection_type => component}.
 
+default_config([auth]) ->
+    #{methods => [],
+      password => #{format => scram,
+                    scram_iterations => 10000},
+      sasl_external => [standard],
+      sasl_mechanisms => cyrsasl:default_modules(),
+      max_users_per_domain => infinity};
+default_config([auth, sasl_external_common_name]) ->
+    #{prefix => <<>>,
+      suffix => <<>>};
 default_config([instrumentation]) ->
     #{probe_interval => 15};
 default_config([instrumentation, log]) ->
@@ -1189,17 +1191,13 @@ default_config([modules, mod_event_pusher, push, wpool]) ->
     (default_wpool_opts())#{strategy := available_worker};
 default_config([modules, mod_pubsub, wpool]) ->
     default_wpool_opts();
-default_config([modules, mod_event_pusher, rabbit] = P) ->
-    #{presence_exchange => default_config(P ++ [presence_exchange]),
-      chat_msg_exchange => default_config(P ++ [chat_msg_exchange]),
-      groupchat_msg_exchange => default_config(P ++ [groupchat_msg_exchange])};
 default_config([modules, mod_event_pusher, rabbit, presence_exchange]) ->
-    #{name => <<"presence">>, type => <<"topic">>};
+    #{name => <<"presence">>, type => <<"topic">>, durable => false};
 default_config([modules, mod_event_pusher, rabbit, chat_msg_exchange]) ->
-    #{name => <<"chat_msg">>, type => <<"topic">>,
+    #{name => <<"chat_msg">>, type => <<"topic">>, durable => false,
       sent_topic => <<"chat_msg_sent">>, recv_topic => <<"chat_msg_recv">>};
 default_config([modules, mod_event_pusher, rabbit, groupchat_msg_exchange]) ->
-    #{name => <<"groupchat_msg">>, type => <<"topic">>,
+    #{name => <<"groupchat_msg">>, type => <<"topic">>, durable => false,
       sent_topic => <<"groupchat_msg_sent">>, recv_topic => <<"groupchat_msg_recv">>};
 default_config([modules, mod_event_pusher, sns]) ->
     #{plugin_module => mod_event_pusher_sns_defaults,

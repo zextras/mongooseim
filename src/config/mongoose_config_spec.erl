@@ -337,8 +337,7 @@ http_protocol() ->
 
 %% path: (host_config[].)auth
 auth() ->
-    Items = maps:from_list([{a2b(Method), ejabberd_auth:config_spec(Method)} ||
-                               Method <- all_auth_methods()]),
+    Items = #{a2b(Method) => ejabberd_auth:config_spec(Method) || Method <- all_auth_methods()},
     #section{
        items = Items#{<<"methods">> => #list{items = #option{type = atom,
                                                              validate = {module, ejabberd_auth}}},
@@ -346,6 +345,7 @@ auth() ->
                       <<"sasl_external">> =>
                           #list{items = #option{type = atom,
                                                 process = fun ?MODULE:process_sasl_external/1}},
+                      <<"sasl_external_common_name">> => sasl_external_common_name(),
                       <<"sasl_mechanisms">> =>
                           #list{items = #option{type = atom,
                                                 validate = {module, cyrsasl},
@@ -359,6 +359,13 @@ auth() ->
        process = fun ?MODULE:process_auth/1,
        wrap = host_config
       }.
+
+%% path: (host_config[].)auth.sasl_external_common_name
+sasl_external_common_name() ->
+    #section{items = #{<<"prefix">> => #option{type = binary, validate = jid_localpart},
+                       <<"suffix">> => #option{type = binary, validate = jid_localpart}},
+             defaults = #{<<"prefix">> => <<>>,
+                          <<"suffix">> => <<>>}}.
 
 %% path: (host_config[].)auth.password
 auth_password() ->
@@ -534,15 +541,19 @@ outgoing_pool_connection(<<"rabbit">>) ->
                                            validate = non_empty},
                  <<"password">> => #option{type = binary,
                                            validate = non_empty},
+                 <<"virtual_host">> => #option{type = binary,
+                                               validate = non_empty},
                  <<"confirms_enabled">> => #option{type = boolean},
                  <<"max_worker_queue_len">> => #option{type = int_or_infinity,
-                                                       validate = non_negative}
+                                                       validate = non_negative},
+                 <<"tls">> => tls([client])
                 },
        include = always,
        defaults = #{<<"host">> => "localhost",
                     <<"port">> => 5672,
                     <<"username">> => <<"guest">>,
                     <<"password">> => <<"guest">>,
+                    <<"virtual_host">> => <<"/">>,
                     <<"confirms_enabled">> => false,
                     <<"max_worker_queue_len">> => 1000}
       };
@@ -586,7 +597,8 @@ outgoing_pool_connection(<<"redis">>) ->
                                        validate = port},
                  <<"database">> => #option{type = integer,
                                            validate = non_negative},
-                 <<"password">> => #option{type = string}
+                 <<"password">> => #option{type = string},
+                 <<"tls">> => tls([client])
                 },
        include = always,
        defaults = #{<<"host">> => "127.0.0.1",

@@ -36,7 +36,14 @@
 {suites, "tests", graphql_domain_SUITE}.
 {suites, "tests", graphql_inbox_SUITE}.
 {suites, "tests", graphql_last_SUITE}.
+
 {suites, "tests", graphql_muc_SUITE}.
+{skip_cases, "tests", graphql_muc_SUITE,
+  [user_try_create_instant_room_with_nonexistent_subdomain,
+   admin_try_create_instant_room_with_nonexistent_subdomain],
+  "these tests are based on an error response from s2s"
+  " which doesn't support dynamic domains"}.
+
 {suites, "tests", graphql_muc_light_SUITE}.
 {suites, "tests", graphql_private_SUITE}.
 {suites, "tests", graphql_roster_SUITE}.
@@ -88,6 +95,7 @@
 {suites, "tests", rest_SUITE}.
 {suites, "tests", rest_client_SUITE}.
 {suites, "tests", sasl_SUITE}.
+{suites, "tests", sasl_external_SUITE}.
 {suites, "tests", sasl2_SUITE}.
 {suites, "tests", sic_SUITE}.
 {suites, "tests", smart_markers_SUITE}.
@@ -113,7 +121,6 @@
 {suites, "tests", last_SUITE}.
 {suites, "tests", metrics_api_SUITE}.
 {suites, "tests", persistent_cluster_id_SUITE}.
-{suites, "tests", sasl_external_SUITE}.
 {suites, "tests", service_domain_db_SUITE}.
 
 {suites, "tests", service_mongoose_system_metrics_SUITE}.
