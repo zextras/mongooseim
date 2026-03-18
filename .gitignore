@@ -100,7 +100,6 @@ ebin/
 *.iml
 dialyzer/
 site/
-etc/
 log/
 Mnesia.*
 *.pid
