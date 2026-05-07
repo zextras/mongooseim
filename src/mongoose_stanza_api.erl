@@ -148,12 +148,9 @@ send(#{host_type := HostType, from := From, to := To, stanza := Stanza, origin :
                              lserver => From#jid.lserver,
                              element => Stanza,
                              origin => Origin}),
-    % Pre-seed stable_stanza_id so MUC-path messages (where mod_stanzaid does not
-    % fire because HostType resolves to the MUC domain) still carry a stable id
-    % through routing and produce a consistent MAM archive id.
-    % If mod_stanzaid fires later it will overwrite this with its own generated id.
-    GeneratedId = mod_mam_utils:generate_message_id(mongoose_acc:timestamp(Acc)),
-    Acc0 = mongoose_acc:set_permanent(stable_stanza_id, value, GeneratedId, Acc),
+    % Pre-seed stable_stanza_id for MUC paths where mod_stanzaid does not fire synchronously
+    Acc0 = mongoose_acc:set_permanent(stable_stanza_id, value,
+               mod_mam_utils:generate_message_id(mongoose_acc:timestamp(Acc)), Acc),
     C2SData = mongoose_c2s:create_data(#{host_type => HostType, jid => From}),
     Params = mongoose_c2s:hook_arg(C2SData, session_established, internal, Stanza, undefined),
     Acc1 = case mongoose_c2s_hooks:user_send_packet(HostType, Acc0, Params) of
