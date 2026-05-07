@@ -150,15 +150,14 @@ send(#{host_type := HostType, from := From, to := To, stanza := Stanza, origin :
                              origin => Origin}),
     C2SData = mongoose_c2s:create_data(#{host_type => HostType, jid => From}),
     Params = mongoose_c2s:hook_arg(C2SData, session_established, internal, Stanza, undefined),
-    MaybeAcc = maybe
-        {ok, Acc1} ?= mongoose_c2s_hooks:user_send_packet(HostType, Acc, Params),
-        {ok, Acc2} ?= handle_message(HostType, Acc1, Params),
-        ejabberd_router:route(From, To, Acc2),
-        {ok, Acc2}
+    Acc1 = case mongoose_c2s_hooks:user_send_packet(HostType, Acc, Params) of
+        {_, A1} -> A1
     end,
-    StanzaId = case MaybeAcc of
-        {ok, FinalAcc} -> mongoose_acc:get(stable_stanza_id, value, undefined, FinalAcc);
-        _ -> undefined
+    {_, Acc2} = handle_message(HostType, Acc1, Params),
+    ejabberd_router:route(From, To, Acc2),
+    StanzaId = case mongoose_acc:get(stable_stanza_id, value, undefined, Acc2) of
+        undefined -> null;
+        IntId -> mod_mam_utils:mess_id_to_external_binary(IntId)
     end,
     {ok, #{<<"id">> => get_id(Stanza), <<"stanza_id">> => StanzaId}}.
 
