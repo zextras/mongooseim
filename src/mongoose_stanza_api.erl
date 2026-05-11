@@ -148,7 +148,7 @@ send(#{host_type := HostType, from := From, to := To, stanza := Stanza, origin :
                              lserver => From#jid.lserver,
                              element => Stanza,
                              origin => Origin}),
-    % Pre-seed stable_stanza_id for MUC paths where mod_stanzaid does not fire synchronously
+    %% Pre-seed stable_stanza_id for MUC paths where mod_stanzaid does not fire synchronously
     Acc0 = mongoose_acc:set_permanent(stable_stanza_id, value,
                mod_mam_utils:generate_message_id(mongoose_acc:timestamp(Acc)), Acc),
     C2SData = mongoose_c2s:create_data(#{host_type => HostType, jid => From}),

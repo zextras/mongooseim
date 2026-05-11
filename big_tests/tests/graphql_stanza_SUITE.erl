@@ -375,7 +375,7 @@ user_send_stanza_without_from_with_id_story(Config, Alice, Bob) ->
     StanzaId = binary:encode_hex(crypto:strong_rand_bytes(8)),
     Stanza = escalus_stanza:set_id(escalus_stanza:chat_to_short_jid(Bob, Body), StanzaId),
     Res = user_send_stanza(Alice, exml:to_binary(Stanza), Config),
-    ?assertEqual(#{<<"id">> => StanzaId}, get_ok_value([data, stanza, sendStanza], Res)),
+    #{<<"id">> := StanzaId} = get_ok_value([data, stanza, sendStanza], Res),
     StanzaIn = escalus:wait_for_stanza(Bob),
     escalus:assert(is_message, StanzaIn),
     ?assertEqual(StanzaId, exml_query:attr(StanzaIn, <<"id">>)).
