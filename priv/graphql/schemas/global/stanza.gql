@@ -22,6 +22,8 @@ type StanzaMap{
 type SendStanzaPayload{
   "Stanza id"
   id: ID
+  "Server-assigned archive id (MAM stanza-id)"
+  stanza_id: String
 }
 
 "Trace map data"

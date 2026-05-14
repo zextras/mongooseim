@@ -148,14 +148,21 @@ send(#{host_type := HostType, from := From, to := To, stanza := Stanza, origin :
                              lserver => From#jid.lserver,
                              element => Stanza,
                              origin => Origin}),
+    %% Pre-seed stable_stanza_id for MUC paths where mod_stanzaid does not fire synchronously
+    Acc0 = mongoose_acc:set_permanent(stable_stanza_id, value,
+               mod_mam_utils:generate_message_id(mongoose_acc:timestamp(Acc)), Acc),
     C2SData = mongoose_c2s:create_data(#{host_type => HostType, jid => From}),
     Params = mongoose_c2s:hook_arg(C2SData, session_established, internal, Stanza, undefined),
-    maybe
-        {ok, Acc1} ?= mongoose_c2s_hooks:user_send_packet(HostType, Acc, Params),
-        {ok, Acc2} ?= handle_message(HostType, Acc1, Params),
-        ejabberd_router:route(From, To, Acc2)
+    Acc1 = case mongoose_c2s_hooks:user_send_packet(HostType, Acc0, Params) of
+        {_, A1} -> A1
     end,
-    {ok, #{<<"id">> => get_id(Stanza)}}.
+    {_, Acc2} = handle_message(HostType, Acc1, Params),
+    ejabberd_router:route(From, To, Acc2),
+    StanzaId = case mongoose_acc:get(stable_stanza_id, value, undefined, Acc2) of
+        undefined -> null;
+        IntId -> mod_mam_utils:mess_id_to_external_binary(IntId)
+    end,
+    {ok, #{<<"id">> => get_id(Stanza), <<"stanza_id">> => StanzaId}}.
 
 lookup_messages(#{user := UserJid, with := WithJid, before := Before, limit := Limit,
                   host_type := HostType}) ->
