@@ -27,6 +27,8 @@ The file is divided into the following sections:
 
 The section names above are links to the detailed documentation of each section.
 
+Additional `*.toml` files from `mongooseim.toml.d` are loaded in lexical order. Later files override scalar values and lists, while tables are merged recursively. Set `EJABBERD_CONFIG_DROPIN_PATH` to use a different drop-in directory.
+
 !!! Warning
     It is recommended to use the same configuration file for all nodes in the cluster, but there is no protection against using different option values for each node, because it can happen in two cases:
 

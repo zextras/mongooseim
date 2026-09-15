@@ -3,7 +3,8 @@
 
 -behaviour(mongoose_config_parser).
 
--export([parse_file/1]).
+-export([parse_file/1,
+         parse_files/1]).
 
 -ifdef(TEST).
 -export([process/1,
@@ -53,12 +54,26 @@
 
 -spec parse_file(FileName :: string()) -> mongoose_config_parser:state().
 parse_file(FileName) ->
+    parse_files([FileName]).
+
+-spec parse_files([string()]) -> mongoose_config_parser:state().
+parse_files(FileNames) ->
+    process(lists:foldl(fun read_and_merge/2, #{}, FileNames)).
+
+read_and_merge(FileName, Config) ->
     case tomerl:read_file(FileName) of
         {ok, Content} ->
-            process(Content);
+            deep_merge(Config, Content);
         {error, Error} ->
             error(config_error([#{what => toml_parsing_failed, text => Error}]))
     end.
+
+deep_merge(Base, Override) when is_map(Base), is_map(Override) ->
+    maps:fold(fun(Key, Value, Acc) ->
+                      maps:update_with(Key, fun(Old) -> deep_merge(Old, Value) end, Value, Acc)
+              end, Base, Override);
+deep_merge(_Base, Override) ->
+    Override.
 
 -spec process(toml_section()) -> mongoose_config_parser:state().
 process(Content) ->

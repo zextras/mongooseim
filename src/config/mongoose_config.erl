@@ -33,7 +33,9 @@
 -spec start() -> ok.
 start() ->
     Path = get_config_path(),
-    Opts = mongoose_config_parser:parse_file(Path),
+    DropInDir = os:getenv("EJABBERD_CONFIG_DROPIN_PATH", Path ++ ".d"),
+    DropIns = lists:sort(filelib:wildcard(filename:join(DropInDir, "*.toml"))),
+    Opts = mongoose_config_parser:parse_files([Path | DropIns]),
     set_opts(maps:from_list(Opts)).
 
 -spec stop() -> ok | {error, not_started}.

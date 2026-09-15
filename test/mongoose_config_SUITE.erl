@@ -21,7 +21,8 @@ groups() ->
              set_short_path,
              set_long_path,
              unset_path,
-             load_from_file]},
+             load_from_file,
+             load_from_dropins]},
      {cluster, [], [cluster_load_from_file]}
     ].
 
@@ -139,6 +140,12 @@ load_from_file(Config) ->
 
     %% Try to stop it again
     {error, not_started} = mongoose_config:stop().
+
+load_from_dropins(Config) ->
+    use_config_file(Config, "mongooseim.dropins.toml"),
+    ok = mongoose_config:start(),
+    ?assertEqual(<<"fr">>, mongoose_config:get_opt(language)),
+    ok = mongoose_config:stop().
 
 cluster_load_from_file(Config) ->
     SlaveNode = slave_node(Config),

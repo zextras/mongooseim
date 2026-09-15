@@ -4,7 +4,8 @@
 -module(mongoose_config_parser).
 
 %% parser API
--export([parse_file/1]).
+-export([parse_file/1,
+         parse_files/1]).
 
 %% state API
 -export([build_state/3]).
@@ -15,6 +16,7 @@
 -ignore_xref([get_opts/1]).
 
 -callback parse_file(FileName :: string()) -> state().
+-callback parse_files(FileNames :: [string()]) -> state().
 
 -include("mongoose.hrl").
 
@@ -32,8 +34,12 @@
 
 -spec parse_file(FileName :: string()) -> opts().
 parse_file(FileName) ->
+    parse_files([FileName]).
+
+-spec parse_files([string()]) -> opts().
+parse_files([FileName | _] = FileNames) ->
     ParserModule = parser_module(filename:extension(FileName)),
-    try ParserModule:parse_file(FileName) of
+    try ParserModule:parse_files(FileNames) of
         State ->
             get_opts(State)
     catch
